@@ -1,0 +1,188 @@
+﻿import { Router } from "express";
+import { resolvePermission } from "@workspace/permissions";
+import { requireAuth } from "../../shared/middlewares/requireAuth";
+import { withPermission } from "../../shared/middlewares/withPermission";
+import { asyncHandler } from "../../shared/utils/asyncHandler";
+import { ok, noContent, fail } from "../../shared/utils/response";
+import { getAppUrl } from "../../shared/utils/getAppUrl";
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+} from "../../shared/utils/validate";
+import {
+  changeRoleBeforeApprovalBody,
+  listUsersQuery,
+  rejectUserBody,
+  updateUserBody,
+  userIdParams,
+} from "./users.schemas";
+import * as service from "./users.service";
+
+
+const router = Router();
+
+router.get(
+  "/users",
+  requireAuth,
+  withPermission("users.view"),
+  validateQuery(listUsersQuery),
+  asyncHandler(async (req, res) =>
+    ok(res, await service.listUsers(req.query as never)),
+  ),
+);
+
+router.get(
+  "/users/pending",
+  requireAuth,
+  withPermission("users.manage"),
+  asyncHandler(async (_req, res) => ok(res, await service.listPendingUsers())),
+);
+
+router.get(
+  "/users/assignable",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const viewer = req.currentUser! as { id: string; role: string };
+    return ok(res, await service.listAssignable(viewer));
+  }),
+);
+
+router.get(
+  "/users/:userId",
+  requireAuth,
+  validateParams(userIdParams),
+  asyncHandler(async (req, res) => {
+    const dbUser = req.currentUser as { id: string; role: string };
+    const isSelf = req.params.userId === dbUser.id;
+
+    const PRIVILEGED_ROLES = new Set(["admin", "ceo", "director", "team_leader"]);
+    const canViewUsers =
+      PRIVILEGED_ROLES.has(dbUser.role) ||
+      (await resolvePermission(dbUser.id, "users.view", dbUser.role));
+
+    // Allow fetching own profile always; fetching others requires users.view
+    if (!isSelf && !canViewUsers) {
+      return fail(res, 403, { code: "FORBIDDEN", message: "Forbidden" });
+    }
+
+    const user = await service.getUser(req.params.userId);
+    if (!user) {
+      return fail(res, 404, { code: "NOT_FOUND", message: "User not found" });
+    }
+    return ok(res, user);
+  }),
+);
+
+router.patch(
+  "/users/:userId",
+  requireAuth,
+  validateParams(userIdParams),
+  validateBody(updateUserBody),
+  asyncHandler(async (req, res) => {
+    const dbUser = req.currentUser as { id: string; role: string };
+
+    // Top-tier roles always have employee-management privileges, even if a
+    // role_permissions row has accidentally toggled "employees.edit" off.
+    const PRIVILEGED_ROLES = new Set(["admin", "ceo", "director"]);
+    const isPrivilegedRole = PRIVILEGED_ROLES.has(dbUser.role);
+
+    const canManageUsers =
+      isPrivilegedRole ||
+      (await resolvePermission(dbUser.id, "employees.edit", dbUser.role));
+
+    // self edit allowed; editing others requires employees.edit
+    if (req.params.userId !== dbUser.id && !canManageUsers) {
+      return fail(res, 403, { code: "FORBIDDEN", message: "Forbidden" });
+    }
+
+    const caller = {
+      id: dbUser.id,
+      role: dbUser.role,
+      canManagePrivileged: canManageUsers,
+    };
+
+    const updated = await service.updateUser(req.params.userId, req.body, caller);
+    if (!updated) {
+      return fail(res, 404, { code: "NOT_FOUND", message: "User not found" });
+    }
+    if ("error" in updated) {
+      return fail(res, 400, { code: "BAD_REQUEST", message: updated.error });
+    }
+    return ok(res, updated);
+  }),
+);
+
+
+router.delete(
+  "/users/:userId",
+  requireAuth,
+  withPermission("users.manage"),
+  validateParams(userIdParams),
+  asyncHandler(async (req, res) => {
+    await service.deleteUser(req.params.userId);
+    return noContent(res);
+  }),
+);
+
+router.post(
+  "/users/:userId/approve",
+  requireAuth,
+  withPermission("users.manage"),
+  validateParams(userIdParams),
+  asyncHandler(async (req, res) => {
+    const updated = await service.approveUser(
+      req.params.userId,
+      req.currentUser!.id,
+      getAppUrl(req),
+    );
+    if (!updated) {
+      return fail(res, 404, { code: "NOT_FOUND", message: "User not found" });
+    }
+    return ok(res, updated);
+  }),
+);
+
+router.post(
+  "/users/:userId/reject",
+  requireAuth,
+  withPermission("users.manage"),
+  validateParams(userIdParams),
+  validateBody(rejectUserBody),
+  asyncHandler(async (req, res) => {
+    const updated = await service.rejectUser(req.params.userId, req.body);
+    if (!updated) {
+      return fail(res, 404, { code: "NOT_FOUND", message: "User not found" });
+    }
+    return ok(res, updated);
+  }),
+);
+
+// Admin/CEO endpoint — change a pending user's requested role before
+// approving them. Mirrors PATCH /users/:id but is scoped (pending only)
+// and produces an audit log entry.
+router.patch(
+  "/users/:userId/change-role-before-approval",
+  requireAuth,
+  withPermission("users.manage"),
+  validateParams(userIdParams),
+  validateBody(changeRoleBeforeApprovalBody),
+  asyncHandler(async (req, res) => {
+    const result = await service.changeRoleBeforeApproval(
+      req.params.userId,
+      req.body,
+      req.currentUser!.id,
+    );
+    if (!result) {
+      return fail(res, 404, { code: "NOT_FOUND", message: "User not found" });
+    }
+    if ("error" in result) {
+      return fail(res, 400, { code: "BAD_REQUEST", message: result.error });
+    }
+    return ok(res, result);
+  }),
+);
+
+
+
+export default router;

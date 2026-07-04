@@ -9,11 +9,11 @@
   },
   "include": ["src"],
   "references": [
-    {
-      "path": "../../lib/db"
-    },
-    {
-      "path": "../../lib/api-zod"
-    }
+    { "path": "../../lib/db" },
+    { "path": "../../lib/api-zod" },
+    { "path": "../../lib/api-client" },
+    { "path": "../../lib/core" },
+    { "path": "../../lib/shared" },
+    { "path": "../../lib/permissions" }
   ]
 }

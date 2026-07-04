@@ -21,3 +21,14 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "25e660d5fff542e41124ef41b7954e11eda35db57b641057b70376da5036be41933b01ab02466019ef73af0e8e9ea58a"
+JWT_REFRESH_SECRET = "d6d8df44f68280845b9604d441f53bb1ce1bd640f9a918b9d9154d510435c8e1c78a733ad1f2351a0768de762ceaf050"
+CSRF_SECRET = "469fa938214b1ac521899f64858d022ca6330bf95ebb25331c58af0accdbe201940ee855c3bcfe70d0e27e1769c1554b"
+PUBLIC_APP_URL = "https://dfcc0f62-f485-458b-a505-ff3332e091d4-00-77ixrmmox6hb.riker.replit.dev"
+AUTH_MODE = "mock"
+AUTH_LOG_ENABLED = "false"
+CORS_ORIGINS = "http://localhost:8081,http://localhost:5173,http://127.0.0.1:8081,https://dfcc0f62-f485-458b-a505-ff3332e091d4-00-77ixrmmox6hb.riker.replit.dev,https://dfcc0f62-f485-458b-a505-ff3332e091d4-00-77ixrmmox6hb.riker.replit.dev/mobile"

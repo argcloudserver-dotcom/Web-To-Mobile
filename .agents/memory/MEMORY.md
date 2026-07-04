@@ -1,0 +1,1 @@
+- [TIL CRM Migration](til-crm-migration.md) — CRM migrated from tar.gz; API server + mobile both running; key lessons on Metro/exceljs, CORS, env vars.
