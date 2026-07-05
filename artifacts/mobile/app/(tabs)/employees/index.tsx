@@ -1,21 +1,7 @@
-/**
- * Employees list — Mobile.
- *
- * Mirrors the web EmployeesPage by consuming `useListUsers` from
- * `@workspace/api-client/hooks/employees`. Includes role filter chips and
- * a quick link to the pending-approvals sub-screen.
- */
 import React from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  ActivityIndicator, FlatList, RefreshControl, ScrollView,
+  StyleSheet, Text, TextInput, TouchableOpacity, View,
   type ListRenderItem,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -23,15 +9,17 @@ import { useRouter } from "expo-router";
 
 import { useListUsers, useListPendingUsers } from "@workspace/api-client/hooks/employees";
 import type { User } from "@workspace/api-client";
-import { buildNativeTheme } from "@workspace/ui/tokens";
 import { useI18n } from "@workspace/i18n";
 import { parseApiError } from "@workspace/shared/errors";
-
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { useColors } from "@/hooks/useColors";
 import { useAppTheme } from "@/contexts/ThemeContext";
 
-const ROLES = ["all", "ceo", "admin", "director", "team_leader", "sales"] as const;
+const GOLD = "#c9a84c";
+const NAVY = "#0f1e35";
+const CREAM = "#faf9f6";
 
+const ROLES = ["all", "ceo", "admin", "director", "team_leader", "sales"] as const;
 const ROLE_META: Record<string, { color: string; label: string }> = {
   ceo: { color: "#7C3AED", label: "CEO" },
   admin: { color: "#DC2626", label: "Admin" },
@@ -44,30 +32,24 @@ export default function EmployeesListScreen(): React.ReactElement {
   const router = useRouter();
   const { t } = useI18n();
   const { isDark } = useAppTheme();
-  const theme = React.useMemo(() => buildNativeTheme(isDark), [isDark]);
-  const styles = React.useMemo(() => makeStyles(theme), [theme]);
+  const { colors: c } = useColors();
+
+  const bg = isDark ? c.background : CREAM;
+  const cardBg = isDark ? c.card : "#fff";
+  const cardBorder = isDark ? c.border : "#e8e4de";
+  const fg = isDark ? c.foreground : NAVY;
+  const muted = isDark ? c.mutedForeground : "#9a9490";
 
   const [search, setSearch] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState<(typeof ROLES)[number]>("all");
 
-  const {
-    data: users = [],
-    isLoading,
-    isRefetching,
-    refetch,
-    error,
-  } = useListUsers({ status: "active" });
-
+  const { data: users = [], isLoading, isRefetching, refetch, error } = useListUsers({ status: "active" });
   const { data: pending = [] } = useListPendingUsers();
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     return users.filter((u) => {
-      const matchSearch =
-        !q ||
-        u.name.toLowerCase().includes(q) ||
-        (u.title ?? "").toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q);
+      const matchSearch = !q || u.name.toLowerCase().includes(q) || (u.title ?? "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
       const matchRole = roleFilter === "all" || u.role === roleFilter;
       return matchSearch && matchRole;
     });
@@ -75,25 +57,17 @@ export default function EmployeesListScreen(): React.ReactElement {
 
   const renderItem: ListRenderItem<User> = React.useCallback(
     ({ item }) => (
-      <EmployeeRow
-        user={item}
-        styles={styles}
-        muted={theme.colors.mutedForeground}
-        onPress={() =>
-          router.push({ pathname: "/(tabs)/employees/[id]", params: { id: item.id } })
-        }
-      />
+      <EmployeeRow user={item} muted={muted} cardBg={cardBg} cardBorder={cardBorder} fg={fg}
+        onPress={() => router.push({ pathname: "/(tabs)/employees/[id]", params: { id: item.id } })} />
     ),
-    [router, styles, theme.colors.mutedForeground],
+    [router, muted, cardBg, cardBorder, fg],
   );
 
   if (isLoading && users.length === 0) {
     return (
-      <View style={styles.container}>
-        <ScreenHeader title={t("employees.title")} noBorder />
-        <View style={styles.center}>
-          <ActivityIndicator color={theme.colors.primary} />
-        </View>
+      <View style={[s.flex, { backgroundColor: bg }]}>
+        <ScreenHeader title={t("employees.title")} />
+        <View style={s.center}><ActivityIndicator color={GOLD} /></View>
       </View>
     );
   }
@@ -101,13 +75,14 @@ export default function EmployeesListScreen(): React.ReactElement {
   if (error) {
     const parsed = parseApiError(error);
     return (
-      <View style={styles.container}>
-        <ScreenHeader title={t("employees.title")} noBorder />
-        <View style={[styles.center, { padding: 24 }]}>
-          <Text style={styles.errorTitle}>{parsed.title}</Text>
-          <Text style={styles.errorMessage}>{parsed.message}</Text>
-          <TouchableOpacity style={styles.retry} onPress={() => refetch()}>
-            <Text style={styles.retryText}>Try again</Text>
+      <View style={[s.flex, { backgroundColor: bg }]}>
+        <ScreenHeader title={t("employees.title")} />
+        <View style={[s.center, { padding: 24 }]}>
+          <Feather name="alert-circle" size={36} color={muted} style={{ marginBottom: 12 }} />
+          <Text style={[s.errorTitle, { color: fg }]}>{parsed.title}</Text>
+          <Text style={[s.errorMsg, { color: muted }]}>{parsed.message}</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={() => refetch()}>
+            <Text style={s.retryText}>Try again</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -115,70 +90,60 @@ export default function EmployeesListScreen(): React.ReactElement {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[s.flex, { backgroundColor: bg }]}>
       <ScreenHeader
         title={t("employees.title")}
-        subtitle={`${filtered.length}`}
-        noBorder
+        subtitle={`${filtered.length} ${t("employees.title").toLowerCase()}`}
         rightElement={
           <TouchableOpacity
-            style={styles.pendingBtn}
+            style={s.pendingBtn}
             onPress={() => router.push("/(tabs)/employees/pending")}
           >
-            <Feather name="user-plus" size={14} color={theme.colors.primaryForeground} />
-            <Text style={styles.pendingBtnText}>
-              {t("employees.pending_title")}
-              {pending.length > 0 ? ` (${pending.length})` : ""}
-            </Text>
+            <Feather name="user-plus" size={13} color={GOLD} />
+            {pending.length > 0 && (
+              <View style={s.pendingBadge}>
+                <Text style={s.pendingBadgeText}>{pending.length}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         }
       />
 
-      <View style={styles.searchWrap}>
-        <View style={styles.searchBox}>
-          <Feather
-            name="search"
-            size={16}
-            color={theme.colors.mutedForeground}
-            style={{ marginRight: 8 }}
-          />
+      <View style={s.searchWrap}>
+        <View style={[s.searchBox, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <Feather name="search" size={16} color={muted} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.searchInput}
+            style={[s.searchInput, { color: fg }]}
             placeholder={t("employees.search")}
-            placeholderTextColor={theme.colors.mutedForeground}
+            placeholderTextColor={muted}
             value={search}
             onChangeText={setSearch}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch("")}>
-              <Feather name="x" size={15} color={theme.colors.mutedForeground} />
+              <Feather name="x" size={15} color={muted} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterRow}
+        horizontal showsHorizontalScrollIndicator={false}
+        style={s.filterRow}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}
       >
         {ROLES.map((r) => {
           const active = r === roleFilter;
           const meta = ROLE_META[r];
-          const color = meta?.color ?? theme.colors.primary;
+          const color = meta?.color ?? GOLD;
           return (
             <TouchableOpacity
               key={r}
-              style={[styles.chip, active && { backgroundColor: color, borderColor: color }]}
+              style={[s.chip, { backgroundColor: cardBg, borderColor: active ? color : cardBorder },
+                active && { backgroundColor: `${color}18` }]}
               onPress={() => setRoleFilter(r)}
             >
-              <Text
-                style={[
-                  styles.chipTxt,
-                  active && { color: theme.colors.primaryForeground },
-                ]}
-              >
+              <Text style={[s.chipTxt, { color: active ? color : muted }, active && { fontWeight: "700" }]}>
                 {r === "all" ? "All" : meta?.label ?? r}
               </Text>
             </TouchableOpacity>
@@ -190,18 +155,12 @@ export default function EmployeesListScreen(): React.ReactElement {
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={theme.colors.primary}
-          />
-        }
+        contentContainerStyle={s.list}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={GOLD} colors={[GOLD]} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Feather name="users" size={36} color={theme.colors.mutedForeground} />
-            <Text style={styles.emptyText}>{t("employees.no_employees")}</Text>
+          <View style={s.empty}>
+            <Feather name="users" size={36} color={muted} />
+            <Text style={[s.emptyText, { color: muted }]}>{t("employees.no_employees")}</Text>
           </View>
         }
       />
@@ -210,134 +169,72 @@ export default function EmployeesListScreen(): React.ReactElement {
 }
 
 interface EmployeeRowProps {
-  user: User;
-  styles: ReturnType<typeof makeStyles>;
-  muted: string;
-  onPress: () => void;
+  user: User; muted: string; cardBg: string; cardBorder: string; fg: string; onPress: () => void;
 }
-
-const EmployeeRow = React.memo(function EmployeeRow({
-  user,
-  styles,
-  muted,
-  onPress,
-}: EmployeeRowProps): React.ReactElement {
-  const meta = ROLE_META[user.role] ?? { color: muted, label: user.role };
-  const initials = user.name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+const EmployeeRow = React.memo(function EmployeeRow({ user, muted, cardBg, cardBorder, fg, onPress }: EmployeeRowProps) {
+  const meta = ROLE_META[user.role] ?? { color: GOLD, label: user.role };
+  const initials = user.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onPress}>
-      <View style={[styles.avatar, { backgroundColor: `${meta.color}22` }]}>
-        <Text style={[styles.avatarTxt, { color: meta.color }]}>{initials}</Text>
+    <TouchableOpacity style={[s.card, { backgroundColor: cardBg, borderColor: cardBorder }]} activeOpacity={0.75} onPress={onPress}>
+      <View style={[s.avatar, { backgroundColor: `${meta.color}1a` }]}>
+        <Text style={[s.avatarTxt, { color: meta.color }]}>{initials}</Text>
       </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {user.name}
-        </Text>
-        {!!user.title && (
-          <Text style={styles.cardMeta} numberOfLines={1}>
-            {user.title}
-          </Text>
-        )}
+      <View style={s.cardBody}>
+        <Text style={[s.cardTitle, { color: fg }]} numberOfLines={1}>{user.name}</Text>
+        {!!user.title && <Text style={[s.cardMeta, { color: muted }]} numberOfLines={1}>{user.title}</Text>}
         {!!user.phone && (
-          <View style={styles.metaRow}>
+          <View style={s.metaRow}>
             <Feather name="phone" size={11} color={muted} />
-            <Text style={styles.cardMeta}>{user.phone}</Text>
+            <Text style={[s.cardMeta, { color: muted }]}>{user.phone}</Text>
           </View>
         )}
       </View>
       <View style={{ alignItems: "flex-end", gap: 6 }}>
-        <View style={[styles.roleBadge, { backgroundColor: `${meta.color}18` }]}>
-          <Text style={[styles.roleTxt, { color: meta.color }]}>{meta.label}</Text>
+        <View style={[s.roleBadge, { backgroundColor: `${meta.color}15`, borderColor: `${meta.color}30`, borderWidth: 1 }]}>
+          <Text style={[s.roleTxt, { color: meta.color }]}>{meta.label}</Text>
         </View>
-        {user.isOnline && <View style={styles.onlineDot} />}
+        {user.isOnline && <View style={s.onlineDot} />}
       </View>
     </TouchableOpacity>
   );
 });
 
-function makeStyles(theme: ReturnType<typeof buildNativeTheme>) {
-  const c = theme.colors;
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.background },
-    center: { flex: 1, alignItems: "center", justifyContent: "center" },
-    searchWrap: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
-    searchBox: {
-      flexDirection: "row",
-      alignItems: "center",
-      borderRadius: theme.radius.md,
-      borderWidth: 1,
-      borderColor: c.border,
-      backgroundColor: c.card,
-      paddingHorizontal: 14,
-      height: 46,
-    },
-    searchInput: { flex: 1, fontSize: 15, color: c.foreground },
-    filterRow: { maxHeight: 52, marginBottom: 4 },
-    chip: {
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: c.border,
-      backgroundColor: c.card,
-    },
-    chipTxt: { fontSize: 13, fontWeight: "500", color: c.mutedForeground },
-    list: { paddingHorizontal: 20, paddingBottom: 120, paddingTop: 4 },
-    empty: { alignItems: "center", paddingTop: 60, gap: 12 },
-    emptyText: { fontSize: 15, color: c.mutedForeground },
-    card: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      borderRadius: theme.radius.lg,
-      padding: 14,
-      marginBottom: 8,
-      borderWidth: 1,
-      borderColor: c.border,
-      backgroundColor: c.card,
-    },
-    avatar: {
-      width: 46,
-      height: 46,
-      borderRadius: theme.radius.md,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    avatarTxt: { fontSize: 16, fontWeight: "700" },
-    cardBody: { flex: 1, gap: 2 },
-    cardTitle: { fontSize: 15, fontWeight: "600", color: c.foreground },
-    cardMeta: { fontSize: 12, color: c.mutedForeground },
-    metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-    roleBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-    roleTxt: { fontSize: 11, fontWeight: "700" },
-    onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.success },
-    pendingBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: c.primary,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: theme.radius.md,
-    },
-    pendingBtnText: {
-      color: c.primaryForeground,
-      fontSize: 12,
-      fontWeight: "600",
-    },
-    errorTitle: { fontSize: 17, fontWeight: "700", color: c.foreground, marginBottom: 6 },
-    errorMessage: { fontSize: 14, color: c.mutedForeground, textAlign: "center" },
-    retry: {
-      marginTop: 16,
-      paddingHorizontal: 18,
-      paddingVertical: 10,
-      borderRadius: theme.radius.md,
-      backgroundColor: c.primary,
-    },
-    retryText: { color: c.primaryForeground, fontWeight: "600" },
-  });
-}
+const s = StyleSheet.create({
+  flex: { flex: 1 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  searchWrap: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  searchBox: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, height: 46 },
+  searchInput: { flex: 1, fontSize: 15 },
+  filterRow: { maxHeight: 52, marginBottom: 4 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  chipTxt: { fontSize: 13, fontWeight: "500" },
+  list: { paddingHorizontal: 20, paddingBottom: 120, paddingTop: 4 },
+  empty: { alignItems: "center", paddingTop: 60, gap: 12 },
+  emptyText: { fontSize: 15 },
+  card: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1 },
+  avatar: { width: 46, height: 46, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  avatarTxt: { fontSize: 16, fontWeight: "700" },
+  cardBody: { flex: 1, gap: 2 },
+  cardTitle: { fontSize: 15, fontWeight: "600" },
+  cardMeta: { fontSize: 12 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  roleBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  roleTxt: { fontSize: 11, fontWeight: "700" },
+  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" },
+  pendingBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: "rgba(201,168,76,0.12)",
+    borderWidth: 1, borderColor: "rgba(201,168,76,0.35)",
+    alignItems: "center", justifyContent: "center",
+  },
+  pendingBadge: {
+    position: "absolute", top: -4, right: -4,
+    backgroundColor: "#dc2626", borderRadius: 8,
+    minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+  },
+  pendingBadgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+  errorTitle: { fontSize: 17, fontWeight: "600", marginBottom: 6, textAlign: "center" },
+  errorMsg: { fontSize: 13, textAlign: "center", marginBottom: 20 },
+  retryBtn: { backgroundColor: GOLD, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+});

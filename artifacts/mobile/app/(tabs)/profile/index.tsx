@@ -1,36 +1,27 @@
-/**
- * Profile / Settings — Mobile.
- *
- * User details + language toggle + theme toggle + sign out. Styled with
- * native tokens from `@workspace/ui/tokens`, labelled via `useI18n`.
- */
 import React from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 
-import { buildNativeTheme } from "@workspace/ui/tokens";
 import { useI18n } from "@workspace/i18n";
-
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useColors } from "@/hooks/useColors";
+
+const GOLD = "#c9a84c";
+const GOLD_BRIGHT = "#e8c96a";
+const NAVY = "#0f1e35";
+const NAVY_MID = "#1e3560";
+const CREAM = "#faf9f6";
 
 const ROLE_COLORS: Record<string, string> = {
-  ceo: "#7C3AED",
-  admin: "#DC2626",
-  director: "#0891B2",
-  team_leader: "#2563EB",
-  sales: "#16A34A",
+  ceo: "#7C3AED", admin: "#DC2626", director: "#0891B2", team_leader: "#2563EB", sales: "#16A34A",
 };
 
 export default function ProfileScreen(): React.ReactElement | null {
@@ -39,25 +30,24 @@ export default function ProfileScreen(): React.ReactElement | null {
   const { isDark, toggleTheme } = useAppTheme();
   const { language, toggleLanguage } = useLanguage();
   const { user, signOut } = useAuthContext();
+  const { colors: c } = useColors();
 
-  const theme = React.useMemo(() => buildNativeTheme(isDark), [isDark]);
-  const styles = React.useMemo(() => makeStyles(theme), [theme]);
+  const bg = isDark ? c.background : CREAM;
+  const cardBg = isDark ? c.card : "#fff";
+  const cardBorder = isDark ? c.border : "#e8e4de";
+  const fg = isDark ? c.foreground : NAVY;
+  const muted = isDark ? c.mutedForeground : "#9a9490";
 
   if (!user) return null;
 
-  const roleColor = ROLE_COLORS[user.role] ?? theme.colors.primary;
-  const initials = user.name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+  const roleColor = ROLE_COLORS[user.role] ?? NAVY;
+  const initials = user.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
   function handleSignOut() {
     Alert.alert(t("common.confirm"), t("common.confirm_delete"), [
       { text: t("common.cancel"), style: "cancel" },
       {
-        text: t("common.yes_delete"),
-        style: "destructive",
+        text: t("common.yes_delete"), style: "destructive",
         onPress: async () => {
           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           await signOut();
@@ -68,200 +58,113 @@ export default function ProfileScreen(): React.ReactElement | null {
   }
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader title={t("profile.title")} subtitle={user.name} noBorder />
+    <View style={[s.container, { backgroundColor: bg }]}>
+      <ScreenHeader title={t("profile.title")} subtitle={user.name} />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero */}
-        <View style={styles.heroCard}>
-          <View style={[styles.avatar, { backgroundColor: roleColor }]}>
-            <Text style={styles.avatarText}>{initials}</Text>
+      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+
+        {/* Profile hero card */}
+        <View style={[s.heroCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          {/* Avatar with role color */}
+          <View style={[s.avatarWrap, { backgroundColor: `${roleColor}18`, borderColor: `${roleColor}30` }]}>
+            <Text style={[s.avatarText, { color: roleColor }]}>{initials}</Text>
           </View>
-          <Text style={styles.name}>{user.name}</Text>
-          {!!user.title && <Text style={styles.title}>{user.title}</Text>}
-          <Text style={styles.email}>{user.email}</Text>
-          <View style={[styles.rolePill, { backgroundColor: `${roleColor}18` }]}>
-            <View style={[styles.roleDot, { backgroundColor: roleColor }]} />
-            <Text style={[styles.roleTxt, { color: roleColor }]}>{user.role.toUpperCase()}</Text>
+          <Text style={[s.name, { color: fg }]}>{user.name}</Text>
+          {!!user.title && <Text style={[s.jobTitle, { color: muted }]}>{user.title}</Text>}
+          <Text style={[s.email, { color: muted }]}>{user.email}</Text>
+          <View style={[s.rolePill, { backgroundColor: `${roleColor}15`, borderColor: `${roleColor}30` }]}>
+            <View style={[s.roleDot, { backgroundColor: roleColor }]} />
+            <Text style={[s.roleTxt, { color: roleColor }]}>{user.role.replace("_", " ").toUpperCase()}</Text>
           </View>
         </View>
 
-        {/* Settings */}
-        <Text style={styles.sectionLabel}>{t("common.actions").toUpperCase()}</Text>
-        <View style={styles.menuCard}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={toggleTheme}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: `${theme.colors.primary}12` }]}>
-              <Feather name={isDark ? "sun" : "moon"} size={16} color={theme.colors.primary} />
+        {/* Settings section */}
+        <Text style={[s.sectionLabel, { color: muted }]}>{t("common.actions").toUpperCase()}</Text>
+        <View style={[s.menuCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          {/* Theme toggle */}
+          <TouchableOpacity style={s.row} onPress={toggleTheme} activeOpacity={0.7}>
+            <View style={[s.rowIcon, { backgroundColor: "rgba(201,168,76,0.12)" }]}>
+              <Feather name={isDark ? "sun" : "moon"} size={16} color={GOLD} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>
-                {isDark ? "Light Mode" : "Dark Mode"}
-              </Text>
+              <Text style={[s.rowLabel, { color: fg }]}>{isDark ? "Light Mode" : "Dark Mode"}</Text>
             </View>
-            <View
-              style={[
-                styles.togglePill,
-                { backgroundColor: isDark ? theme.colors.accent : theme.colors.border },
-              ]}
-            >
-              <View
-                style={[
-                  styles.toggleThumb,
-                  { transform: [{ translateX: isDark ? 16 : 2 }] },
-                ]}
-              />
+            <View style={[s.togglePill, { backgroundColor: isDark ? GOLD : cardBorder }]}>
+              <View style={[s.toggleThumb, { transform: [{ translateX: isDark ? 16 : 2 }] }]} />
             </View>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          <View style={[s.divider, { backgroundColor: cardBorder }]} />
 
+          {/* Language toggle */}
           <TouchableOpacity
-            style={styles.row}
-            onPress={async () => {
-              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              await toggleLanguage();
-            }}
+            style={s.row}
+            onPress={async () => { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); await toggleLanguage(); }}
             activeOpacity={0.7}
           >
-            <View style={[styles.rowIcon, { backgroundColor: `${theme.colors.primary}12` }]}>
-              <Feather name="globe" size={16} color={theme.colors.primary} />
+            <View style={[s.rowIcon, { backgroundColor: "rgba(201,168,76,0.12)" }]}>
+              <Feather name="globe" size={16} color={GOLD} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>
-                {language === "en" ? "العربية" : "English"}
-              </Text>
-              <Text style={styles.rowMeta}>
-                {language === "en" ? "التبديل إلى العربية" : "Switch to English"}
-              </Text>
+              <Text style={[s.rowLabel, { color: fg }]}>{language === "en" ? "العربية" : "English"}</Text>
+              <Text style={[s.rowMeta, { color: muted }]}>{language === "en" ? "التبديل إلى العربية" : "Switch to English"}</Text>
             </View>
-            <View style={styles.langBadge}>
-              <Text style={styles.langBadgeTxt}>{language === "en" ? "AR" : "EN"}</Text>
+            <View style={[s.langBadge, { backgroundColor: "rgba(201,168,76,0.12)", borderColor: "rgba(201,168,76,0.3)" }]}>
+              <Text style={[s.langBadgeTxt, { color: GOLD }]}>{language === "en" ? "AR" : "EN"}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Sign out */}
-        <View style={[styles.menuCard, { marginBottom: 80 }]}>
-          <TouchableOpacity style={styles.row} onPress={handleSignOut} activeOpacity={0.7}>
-            <View style={[styles.rowIcon, { backgroundColor: `${theme.colors.destructive}15` }]}>
-              <Feather name="log-out" size={16} color={theme.colors.destructive} />
+        <View style={[s.menuCard, { backgroundColor: cardBg, borderColor: cardBorder, marginBottom: 80 }]}>
+          <TouchableOpacity style={s.row} onPress={handleSignOut} activeOpacity={0.7}>
+            <View style={[s.rowIcon, { backgroundColor: "rgba(220,38,38,0.10)" }]}>
+              <Feather name="log-out" size={16} color="#dc2626" />
             </View>
-            <Text style={[styles.rowLabel, { color: theme.colors.destructive }]}>
-              Sign Out
-            </Text>
+            <Text style={[s.rowLabel, { color: "#dc2626" }]}>Sign Out</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.version}>TIL Real Estate Group CRM · v1.0.0</Text>
+        <Text style={[s.version, { color: muted }]}>TIL Real Estate Group CRM · v1.0.0</Text>
       </ScrollView>
     </View>
   );
 }
 
-function makeStyles(theme: ReturnType<typeof buildNativeTheme>) {
-  const c = theme.colors;
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.background },
-    scroll: { flex: 1 },
-    content: { paddingHorizontal: 20, paddingTop: 16 },
-
-    heroCard: {
-      alignItems: "center",
-      backgroundColor: c.card,
-      borderRadius: theme.radius.xl,
-      padding: 28,
-      marginBottom: 24,
-      borderWidth: 1,
-      borderColor: c.border,
-    },
-    avatar: {
-      width: 80,
-      height: 80,
-      borderRadius: theme.radius.full,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 12,
-    },
-    avatarText: { fontSize: 28, fontWeight: "700", color: "#FFF" },
-    name: { fontSize: 20, fontWeight: "700", color: c.foreground },
-    title: { fontSize: 13, color: c.mutedForeground, marginTop: 2 },
-    email: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
-    rolePill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 5,
-      borderRadius: theme.radius.full,
-      marginTop: 12,
-    },
-    roleDot: { width: 7, height: 7, borderRadius: 7 },
-    roleTxt: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
-
-    sectionLabel: {
-      fontSize: 11,
-      fontWeight: "600",
-      color: c.mutedForeground,
-      marginBottom: 8,
-      letterSpacing: 0.8,
-    },
-    menuCard: {
-      backgroundColor: c.card,
-      borderRadius: theme.radius.lg,
-      borderWidth: 1,
-      borderColor: c.border,
-      overflow: "hidden",
-      marginBottom: 16,
-    },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 14,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-    },
-    rowIcon: {
-      width: 34,
-      height: 34,
-      borderRadius: theme.radius.md,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    rowLabel: { fontSize: 15, color: c.foreground, fontWeight: "500" },
-    rowMeta: { fontSize: 12, color: c.mutedForeground, marginTop: 1 },
-    divider: { height: 1, backgroundColor: c.border, marginLeft: 64 },
-
-    togglePill: { width: 36, height: 22, borderRadius: 11, justifyContent: "center" },
-    toggleThumb: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      backgroundColor: "#FFF",
-    },
-    langBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: theme.radius.full,
-      backgroundColor: `${c.accent}22`,
-      borderWidth: 1,
-      borderColor: `${c.accent}44`,
-    },
-    langBadgeTxt: { fontSize: 12, fontWeight: "700", color: c.accent },
-
-    version: {
-      textAlign: "center",
-      color: c.mutedForeground,
-      fontSize: 12,
-      marginTop: 8,
-      marginBottom: 16,
-    },
-  });
-}
+const s = StyleSheet.create({
+  container: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 20 },
+  heroCard: {
+    alignItems: "center", borderRadius: 18, padding: 28,
+    marginBottom: 24, borderWidth: 1,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+  },
+  avatarWrap: {
+    width: 80, height: 80, borderRadius: 40,
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 14, borderWidth: 2,
+  },
+  avatarText: { fontSize: 28, fontWeight: "800" },
+  name: { fontSize: 20, fontWeight: "800", letterSpacing: -0.3 },
+  jobTitle: { fontSize: 13, marginTop: 2 },
+  email: { fontSize: 12, marginTop: 2 },
+  rolePill: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, marginTop: 12, borderWidth: 1,
+  },
+  roleDot: { width: 7, height: 7, borderRadius: 7 },
+  roleTxt: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  sectionLabel: { fontSize: 11, fontWeight: "600", marginBottom: 8, letterSpacing: 0.8 },
+  menuCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden", marginBottom: 16 },
+  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  rowIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  rowLabel: { fontSize: 15, fontWeight: "500" },
+  rowMeta: { fontSize: 12, marginTop: 1 },
+  divider: { height: 1, marginLeft: 64 },
+  togglePill: { width: 36, height: 22, borderRadius: 11, justifyContent: "center" },
+  toggleThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: "#FFF" },
+  langBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  langBadgeTxt: { fontSize: 12, fontWeight: "700" },
+  version: { textAlign: "center", fontSize: 12, marginTop: 8, marginBottom: 16 },
+});

@@ -8,8 +8,11 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 import * as Haptics from "expo-haptics";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { useListNotifications } from "@workspace/api-client";
-import { shadow } from "@/lib/shadow";
 import { useI18n } from "@workspace/i18n";
+
+const GOLD = "#c9a84c";
+const NAVY = "#0f1e35";
+const CREAM = "#faf9f6";
 
 const ROLE_MAP: Record<string, { color: string; label: string }> = {
   ceo:         { color: "#7C3AED", label: "CEO" },
@@ -31,35 +34,39 @@ function SectionItem({
   accent?: boolean;
 }) {
   const { colors: c } = useColors();
-  const iconColor = destructive ? c.danger : accent ? c.accent : c.primary;
-  const iconBg = destructive ? `${c.danger}15` : accent ? "rgba(200,168,75,0.12)" : `${c.primary}12`;
+  const { isDark } = useAppTheme();
+  const fg = isDark ? c.foreground : NAVY;
+  const muted = isDark ? c.mutedForeground : "#9a9490";
+  const iconColor = destructive ? "#dc2626" : GOLD;
+  const iconBg = destructive ? "rgba(220,38,38,0.10)" : "rgba(201,168,76,0.12)";
 
   return (
     <TouchableOpacity
-      style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 14 }}
+      style={s.rowItem}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: iconBg, alignItems: "center", justifyContent: "center" }}>
+      <View style={[s.rowIcon, { backgroundColor: iconBg }]}>
         <Feather name={icon} size={17} color={iconColor} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, color: destructive ? c.danger : c.foreground, fontWeight: "500" }}>{label}</Text>
-        {subtitle && <Text style={{ fontSize: 12, color: c.mutedForeground, marginTop: 1 }}>{subtitle}</Text>}
+        <Text style={[s.rowLabel, { color: destructive ? "#dc2626" : fg }]}>{label}</Text>
+        {subtitle && <Text style={[s.rowMeta, { color: muted }]}>{subtitle}</Text>}
       </View>
       {badge !== undefined && badge > 0 && (
-        <View style={{ backgroundColor: c.danger, borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 }}>
-          <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{badge > 99 ? "99+" : badge}</Text>
+        <View style={s.badgeBubble}>
+          <Text style={s.badgeTxt}>{badge > 99 ? "99+" : badge}</Text>
         </View>
       )}
-      {!destructive && <Feather name="chevron-right" size={16} color={c.mutedForeground} />}
+      {!destructive && <Feather name="chevron-right" size={16} color={muted} />}
     </TouchableOpacity>
   );
 }
 
 function Divider() {
-  const { colors } = useColors();
-  return <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 66 }} />;
+  const { colors: c } = useColors();
+  const { isDark } = useAppTheme();
+  return <View style={[s.divider, { backgroundColor: isDark ? c.border : "#e8e4de" }]} />;
 }
 
 export default function MoreScreen() {
@@ -68,6 +75,12 @@ export default function MoreScreen() {
   const { t, locale, toggleLocale } = useI18n();
   const router = useRouter();
   const { user, signOut } = useAuthContext();
+
+  const bg = isDark ? c.background : CREAM;
+  const cardBg = isDark ? c.card : "#fff";
+  const cardBorder = isDark ? c.border : "#e8e4de";
+  const fg = isDark ? c.foreground : NAVY;
+  const muted = isDark ? c.mutedForeground : "#9a9490";
 
   const { data: notifications = [] } = useListNotifications();
   const unreadCount = notifications.filter((n: any) => !n.isRead).length;
@@ -88,40 +101,40 @@ export default function MoreScreen() {
 
   if (!user) return null;
 
-  const role = ROLE_MAP[user.role] ?? { color: c.primary, label: user.role };
+  const role = ROLE_MAP[user.role] ?? { color: NAVY, label: user.role };
   const initials = user.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
-  const s = makeStyles(c);
-
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: bg }]}>
       <ScreenHeader title={t("more_screen.title")} subtitle={t("more_screen.subtitle")} />
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingHorizontal: 20, paddingTop: 16 }]}>
 
         {/* Profile Mini Card */}
-        <TouchableOpacity style={s.profileCard} activeOpacity={0.8}>
-          <View style={[s.avatar, { backgroundColor: role.color }]}>
-            <Text style={s.avatarText}>{initials}</Text>
+        <TouchableOpacity
+          style={[s.profileCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+          activeOpacity={0.8}
+          onPress={() => router.push("/(tabs)/profile")}
+        >
+          <View style={[s.avatar, { backgroundColor: `${role.color}1a`, borderColor: `${role.color}30` }]}>
+            <Text style={[s.avatarText, { color: role.color }]}>{initials}</Text>
           </View>
-          <View style={s.profileInfo}>
-            <Text style={s.profileName}>{user.name}</Text>
-            <Text style={s.profileMeta}>{user.email}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.profileName, { color: fg }]}>{user.name}</Text>
+            <Text style={[s.profileMeta, { color: muted }]}>{user.email}</Text>
           </View>
-          <View style={[s.rolePill, { backgroundColor: `${role.color}18` }]}>
+          <View style={[s.rolePill, { backgroundColor: `${role.color}15`, borderColor: `${role.color}28` }]}>
             <Text style={[s.roleTxt, { color: role.color }]}>{role.label}</Text>
           </View>
         </TouchableOpacity>
 
         {/* Tools */}
-        <Text style={s.sectionLabel}>{t("more_screen.tools").toUpperCase()}</Text>
-        <View style={s.menuCard}>
+        <Text style={[s.sectionLabel, { color: muted }]}>{t("more_screen.tools").toUpperCase()}</Text>
+        <View style={[s.menuCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           <SectionItem icon="calendar" label={t("nav.planner")} subtitle={t("home.nav.planner_desc")} onPress={() => router.push("/(tabs)/planner")} />
           <Divider />
           <SectionItem icon="home" label={t("nav.resale")} subtitle={t("home.nav.resale_desc")} onPress={() => router.push("/(tabs)/resale")} />
           <Divider />
           <SectionItem icon="bar-chart-2" label={t("nav.reports")} subtitle={t("reports.title")} onPress={() => router.push("/(tabs)/reports")} />
-          <Divider />
-          <SectionItem icon="user" label={t("nav.profile")} subtitle={t("home.nav.profile_desc")} onPress={() => router.push("/(tabs)/profile")} />
           <Divider />
           <SectionItem icon="users" label={t("nav.employees._")} subtitle={t("employees.subtitle")} onPress={() => router.push("/(tabs)/employees")} />
           <Divider />
@@ -141,79 +154,83 @@ export default function MoreScreen() {
         </View>
 
         {/* Settings */}
-        <Text style={s.sectionLabel}>{t("more_screen.settings").toUpperCase()}</Text>
-        <View style={s.menuCard}>
-          <TouchableOpacity
-            style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 14 }}
-            onPress={toggleTheme}
-            activeOpacity={0.7}
-          >
-            <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: `${c.primary}12`, alignItems: "center", justifyContent: "center" }}>
-              <Feather name={isDark ? "sun" : "moon"} size={17} color={c.primary} />
+        <Text style={[s.sectionLabel, { color: muted }]}>{t("more_screen.settings").toUpperCase()}</Text>
+        <View style={[s.menuCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          {/* Theme toggle */}
+          <TouchableOpacity style={s.rowItem} onPress={toggleTheme} activeOpacity={0.7}>
+            <View style={[s.rowIcon, { backgroundColor: "rgba(201,168,76,0.12)" }]}>
+              <Feather name={isDark ? "sun" : "moon"} size={17} color={GOLD} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: c.foreground, fontWeight: "500" }}>{isDark ? t("more_screen.theme_light") : t("more_screen.theme_dark")}</Text>
-              <Text style={{ fontSize: 12, color: c.mutedForeground, marginTop: 1 }}>{t("more_screen.theme_switch")}</Text>
+              <Text style={[s.rowLabel, { color: fg }]}>{isDark ? t("more_screen.theme_light") : t("more_screen.theme_dark")}</Text>
+              <Text style={[s.rowMeta, { color: muted }]}>{t("more_screen.theme_switch")}</Text>
             </View>
-            <View style={[s.togglePill, { backgroundColor: isDark ? c.accent : c.border }]}>
+            <View style={[s.togglePill, { backgroundColor: isDark ? GOLD : cardBorder }]}>
               <View style={[s.toggleThumb, { transform: [{ translateX: isDark ? 16 : 2 }] }]} />
             </View>
           </TouchableOpacity>
           <Divider />
+          {/* Language toggle */}
           <TouchableOpacity
-            style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 14 }}
+            style={s.rowItem}
             onPress={async () => { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); await toggleLocale(); }}
             activeOpacity={0.7}
           >
-            <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: `${c.primary}12`, alignItems: "center", justifyContent: "center" }}>
-              <Feather name="globe" size={17} color={c.primary} />
+            <View style={[s.rowIcon, { backgroundColor: "rgba(201,168,76,0.12)" }]}>
+              <Feather name="globe" size={17} color={GOLD} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: c.foreground, fontWeight: "500" }}>
+              <Text style={[s.rowLabel, { color: fg }]}>
                 {locale === "en" ? t("more_screen.language_ar") : t("more_screen.language_en")}
               </Text>
-              <Text style={{ fontSize: 12, color: c.mutedForeground, marginTop: 1 }}>
+              <Text style={[s.rowMeta, { color: muted }]}>
                 {locale === "en" ? t("more_screen.language_subtitle_ar") : t("more_screen.language_subtitle_en")}
               </Text>
             </View>
-            <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: "rgba(201,168,76,0.15)", borderWidth: 1, borderColor: "rgba(201,168,76,0.3)" }}>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.accent }}>{locale === "en" ? "AR" : "EN"}</Text>
+            <View style={[s.langBadge, { backgroundColor: "rgba(201,168,76,0.12)", borderColor: "rgba(201,168,76,0.3)" }]}>
+              <Text style={[s.langBadgeTxt, { color: GOLD }]}>{locale === "en" ? "AR" : "EN"}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Sign Out */}
-        <View style={[s.menuCard, { marginBottom: 100 }]}>
+        <View style={[s.menuCard, { backgroundColor: cardBg, borderColor: cardBorder, marginBottom: 100 }]}>
           <SectionItem icon="log-out" label={t("auth.logout")} onPress={handleSignOut} destructive />
         </View>
 
-        <Text style={s.version}>TIL Real Estate Group CRM · v1.0.0</Text>
+        <Text style={[s.version, { color: muted }]}>TIL Real Estate Group CRM · v1.0.0</Text>
       </ScrollView>
     </View>
   );
 }
 
-function makeStyles(c: ReturnType<typeof useColors>["colors"]) {
-  return StyleSheet.create({
-    container:    { flex: 1, backgroundColor: c.background },
-    scroll:       { flex: 1 },
-    content:      { paddingHorizontal: 20, paddingTop: 16 },
-
-    profileCard:  { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: c.card, borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: c.border, ...shadow({ opacity: 0.06, radius: 10, elevation: 3 }) },
-    avatar:       { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-    avatarText:   { fontSize: 18, fontWeight: "700", color: "#FFF" },
-    profileInfo:  { flex: 1 },
-    profileName:  { fontSize: 16, fontWeight: "700", color: c.foreground },
-    profileMeta:  { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
-    rolePill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-    roleTxt:      { fontSize: 11, fontWeight: "700" },
-
-    sectionLabel: { fontSize: 11, fontWeight: "600", color: c.mutedForeground, marginBottom: 8, letterSpacing: 0.8 },
-    menuCard:     { backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.border, overflow: "hidden", marginBottom: 16, ...shadow({ opacity: 0.04, radius: 8, elevation: 2 }) },
-
-    togglePill:   { width: 36, height: 22, borderRadius: 11, justifyContent: "center" },
-    toggleThumb:  { width: 18, height: 18, borderRadius: 9, backgroundColor: "#FFF", ...shadow({ opacity: 0.2, radius: 3, elevation: 2 }) },
-
-    version:      { textAlign: "center", color: c.mutedForeground, fontSize: 12, marginTop: 8, marginBottom: 16 },
-  });
-}
+const s = StyleSheet.create({
+  container:   { flex: 1 },
+  content:     {},
+  profileCard: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+  },
+  avatar:      { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 2 },
+  avatarText:  { fontSize: 18, fontWeight: "800" },
+  profileName: { fontSize: 16, fontWeight: "700" },
+  profileMeta: { fontSize: 12, marginTop: 2 },
+  rolePill:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
+  roleTxt:     { fontSize: 11, fontWeight: "700" },
+  sectionLabel:{ fontSize: 11, fontWeight: "600", marginBottom: 8, letterSpacing: 0.8 },
+  menuCard:    { borderRadius: 14, borderWidth: 1, overflow: "hidden", marginBottom: 16,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  rowItem:     { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  rowIcon:     { width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  rowLabel:    { fontSize: 15, fontWeight: "500" },
+  rowMeta:     { fontSize: 12, marginTop: 1 },
+  divider:     { height: 1, marginLeft: 66 },
+  badgeBubble: { backgroundColor: "#dc2626", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+  badgeTxt:    { color: "#fff", fontSize: 11, fontWeight: "700" },
+  togglePill:  { width: 36, height: 22, borderRadius: 11, justifyContent: "center" },
+  toggleThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: "#FFF" },
+  langBadge:   { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  langBadgeTxt:{ fontSize: 12, fontWeight: "700" },
+  version:     { textAlign: "center", fontSize: 12, marginTop: 8, marginBottom: 16 },
+});
