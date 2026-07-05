@@ -1,1 +1,2 @@
 - [TIL CRM Migration](til-crm-migration.md) — CRM migrated from tar.gz; API server + mobile both running; key lessons on Metro/exceljs, CORS, env vars.
+- [Mobile brand system](mobile-brand.md) — TIL Group brand tokens (NAVY/GOLD/CREAM), shared AuthHero + upgraded ScreenHeader pattern for all screens.

@@ -1,63 +1,48 @@
-/**
- * Leads list — Mobile.
- *
- * Validates the shared-package architecture end-to-end: data is fetched via
- * `useLeads` from `@workspace/api-client/hooks/leads`, status labels come
- * from `@workspace/core`, and the UI is styled with the native design
- * tokens from `@workspace/ui/tokens`. No web CSS, no Tailwind.
- */
 import React from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type ListRenderItem,
+  ActivityIndicator, FlatList, RefreshControl, StyleSheet,
+  Text, TouchableOpacity, View, type ListRenderItem,
 } from "react-native";
 import { useRouter } from "expo-router";
-
+import { Feather } from "@expo/vector-icons";
 import { useLeads } from "@workspace/api-client/hooks/leads";
 import type { Lead } from "@workspace/api-client";
 import { STATUS_LABELS } from "@workspace/core";
-import { buildNativeTheme } from "@workspace/ui/tokens";
 import { useI18n } from "@workspace/i18n";
 import { parseApiError } from "@workspace/shared/errors";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { useColors } from "@/hooks/useColors";
+
+const GOLD = "#c9a84c";
+const NAVY = "#0f1e35";
 
 export default function LeadsListScreen(): React.ReactElement {
   const router = useRouter();
   const { locale } = useI18n();
-  const theme = React.useMemo(() => buildNativeTheme(false), []);
-  const styles = React.useMemo(() => makeStyles(theme), [theme]);
+  const { colors: c } = useColors();
 
-  const {
-    data: leads,
-    isLoading,
-    isRefetching,
-    refetch,
-    error,
-  } = useLeads();
+  const { data: leads, isLoading, isRefetching, refetch, error } = useLeads();
 
   const renderItem: ListRenderItem<Lead> = React.useCallback(
     ({ item }) => (
       <LeadRow
         lead={item}
         locale={locale}
-        styles={styles}
-        accent={theme.colors.accent}
-        muted={theme.colors.mutedForeground}
+        accent={GOLD}
+        muted={c.mutedForeground}
+        card={c.card}
+        border={c.border}
+        foreground={c.foreground}
         onPress={() => router.push(`/(tabs)/leads/${item.id}`)}
       />
     ),
-    [locale, styles, router, theme.colors.accent, theme.colors.mutedForeground],
+    [locale, router, c],
   );
 
   if (isLoading) {
     return (
-      <View style={[styles.flex, styles.center]}>
-        <ActivityIndicator color={theme.colors.primary} />
+      <View style={[s.flex, s.center, { backgroundColor: c.background }]}>
+        <ActivityIndicator color={GOLD} size="large" />
       </View>
     );
   }
@@ -65,40 +50,46 @@ export default function LeadsListScreen(): React.ReactElement {
   if (error) {
     const parsed = parseApiError(error);
     return (
-      <View style={[styles.flex, styles.center, { padding: theme.spacing[6] }]}>
-        <Text style={styles.errorTitle}>{parsed.title}</Text>
-        <Text style={styles.errorMessage}>{parsed.message}</Text>
-        <TouchableOpacity style={styles.retry} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Try again</Text>
-        </TouchableOpacity>
+      <View style={[s.flex, { backgroundColor: c.background }]}>
+        <ScreenHeader title="Leads" />
+        <View style={[s.center, s.flex, { padding: 24 }]}>
+          <Feather name="alert-circle" size={36} color={c.mutedForeground} style={{ marginBottom: 12 }} />
+          <Text style={[s.errorTitle, { color: c.foreground }]}>{parsed.title}</Text>
+          <Text style={[s.errorMsg, { color: c.mutedForeground }]}>{parsed.message}</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={() => refetch()}>
+            <Text style={s.retryText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
+  const total = leads?.length ?? 0;
+
   return (
-    <View style={styles.flex}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Leads</Text>
-        <Text style={styles.subtitle}>
-          {(leads?.length ?? 0)} total
-        </Text>
-      </View>
+    <View style={[s.flex, { backgroundColor: c.background }]}>
+      <ScreenHeader
+        title="Leads"
+        subtitle={`${total} total`}
+        rightElement={
+          <View style={s.countBadge}>
+            <Text style={s.countText}>{total}</Text>
+          </View>
+        }
+      />
       <FlatList
         data={leads ?? []}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+        contentContainerStyle={s.listContent}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => refetch()}
-            tintColor={theme.colors.primary}
-          />
+          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={GOLD} colors={[GOLD]} />
         }
         ListEmptyComponent={
-          <View style={[styles.center, styles.empty]}>
-            <Text style={styles.emptyText}>No leads yet.</Text>
+          <View style={[s.center, s.empty]}>
+            <Feather name="inbox" size={36} color={c.mutedForeground} style={{ marginBottom: 10 }} />
+            <Text style={[s.emptyText, { color: c.mutedForeground }]}>No leads yet.</Text>
           </View>
         }
       />
@@ -109,151 +100,94 @@ export default function LeadsListScreen(): React.ReactElement {
 interface RowProps {
   lead: Lead;
   locale: "en" | "ar";
-  styles: ReturnType<typeof makeStyles>;
   accent: string;
   muted: string;
+  card: string;
+  border: string;
+  foreground: string;
   onPress: () => void;
 }
 
-function LeadRow({ lead, locale, styles, accent, muted, onPress }: RowProps) {
-  const statusLabel =
-    STATUS_LABELS[lead.status]?.[locale] ?? lead.status;
-  const initials = lead.name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+function LeadRow({ lead, locale, accent, muted, card, border, foreground, onPress }: RowProps) {
+  const statusLabel = STATUS_LABELS[lead.status]?.[locale] ?? lead.status;
+  const initials = lead.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      onPress={onPress}
-      style={styles.row}
-    >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials || "?"}</Text>
+    <TouchableOpacity activeOpacity={0.75} onPress={onPress} style={[s.row, { backgroundColor: card, borderColor: border }]}>
+      {/* Status bar */}
+      <View style={[s.statusBar, { backgroundColor: accent }]} />
+
+      {/* Avatar */}
+      <View style={[s.avatar, { backgroundColor: `${NAVY}18` }]}>
+        <Text style={[s.avatarText, { color: NAVY }]}>{initials || "?"}</Text>
       </View>
-      <View style={styles.rowMain}>
-        <Text style={styles.rowName} numberOfLines={1}>
-          {lead.name}
-        </Text>
-        <Text style={[styles.rowMeta, { color: muted }]} numberOfLines={1}>
+
+      {/* Info */}
+      <View style={s.rowMain}>
+        <Text style={[s.rowName, { color: foreground }]} numberOfLines={1}>{lead.name}</Text>
+        <Text style={[s.rowMeta, { color: muted }]} numberOfLines={1}>
           {lead.phone ?? lead.email ?? lead.source}
         </Text>
       </View>
-      <View style={[styles.statusPill, { borderColor: accent }]}>
-        <Text style={[styles.statusText, { color: accent }]}>
-          {statusLabel}
-        </Text>
+
+      {/* Status pill */}
+      <View style={[s.statusPill, { backgroundColor: `${accent}15`, borderColor: accent }]}>
+        <Text style={[s.statusText, { color: accent }]}>{statusLabel}</Text>
       </View>
+
+      <Feather name="chevron-right" size={14} color={muted} />
     </TouchableOpacity>
   );
 }
 
-function makeStyles(theme: ReturnType<typeof buildNativeTheme>) {
-  const c = theme.colors;
-  return StyleSheet.create({
-    flex: { flex: 1, backgroundColor: c.background },
-    center: { justifyContent: "center", alignItems: "center" },
-    header: {
-      paddingHorizontal: theme.spacing[5],
-      paddingTop: theme.spacing[6],
-      paddingBottom: theme.spacing[3],
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.border,
-      backgroundColor: c.background,
-    },
-    title: {
-      color: c.foreground,
-      fontFamily: theme.typography.fontFamily.bold,
-      fontSize: theme.typography.fontSize["2xl"],
-    },
-    subtitle: {
-      color: c.mutedForeground,
-      fontFamily: theme.typography.fontFamily.sans,
-      fontSize: theme.typography.fontSize.sm,
-      marginTop: theme.spacing[1],
-    },
-    listContent: {
-      padding: theme.spacing[4],
-      flexGrow: 1,
-    },
-    separator: { height: theme.spacing[3] },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: c.card,
-      borderWidth: 1,
-      borderColor: c.border,
-      borderRadius: theme.radius.lg,
-      padding: theme.spacing[4],
-      ...theme.shadows.sm,
-    },
-    avatar: {
-      width: 40,
-      height: 40,
-      borderRadius: theme.radius.full,
-      backgroundColor: c.muted,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: theme.spacing[3],
-    },
-    avatarText: {
-      color: c.foreground,
-      fontFamily: theme.typography.fontFamily.semibold,
-      fontSize: theme.typography.fontSize.sm,
-    },
-    rowMain: { flex: 1, minWidth: 0 },
-    rowName: {
-      color: c.foreground,
-      fontFamily: theme.typography.fontFamily.semibold,
-      fontSize: theme.typography.fontSize.base,
-    },
-    rowMeta: {
-      fontFamily: theme.typography.fontFamily.sans,
-      fontSize: theme.typography.fontSize.xs,
-      marginTop: 2,
-    },
-    statusPill: {
-      borderWidth: 1,
-      borderRadius: theme.radius.full,
-      paddingHorizontal: theme.spacing[3],
-      paddingVertical: theme.spacing[1],
-      marginLeft: theme.spacing[2],
-    },
-    statusText: {
-      fontFamily: theme.typography.fontFamily.medium,
-      fontSize: theme.typography.fontSize.xs,
-    },
-    empty: { paddingVertical: theme.spacing[10] },
-    emptyText: {
-      color: c.mutedForeground,
-      fontFamily: theme.typography.fontFamily.sans,
-      fontSize: theme.typography.fontSize.sm,
-    },
-    errorTitle: {
-      color: c.foreground,
-      fontFamily: theme.typography.fontFamily.semibold,
-      fontSize: theme.typography.fontSize.lg,
-      marginBottom: theme.spacing[2],
-    },
-    errorMessage: {
-      color: c.mutedForeground,
-      fontFamily: theme.typography.fontFamily.sans,
-      fontSize: theme.typography.fontSize.sm,
-      textAlign: "center",
-      marginBottom: theme.spacing[4],
-    },
-    retry: {
-      backgroundColor: c.primary,
-      paddingHorizontal: theme.spacing[5],
-      paddingVertical: theme.spacing[3],
-      borderRadius: theme.radius.md,
-    },
-    retryText: {
-      color: c.primaryForeground,
-      fontFamily: theme.typography.fontFamily.semibold,
-      fontSize: theme.typography.fontSize.sm,
-    },
-  });
-}
+const s = StyleSheet.create({
+  flex: { flex: 1 },
+  center: { justifyContent: "center", alignItems: "center" },
+  listContent: { padding: 16, flexGrow: 1 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingLeft: 0,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statusBar: { width: 4, alignSelf: "stretch", marginRight: 8, borderRadius: 2 },
+  avatar: {
+    width: 40, height: 40, borderRadius: 12,
+    alignItems: "center", justifyContent: "center",
+  },
+  avatarText: { fontSize: 14, fontWeight: "700" },
+  rowMain: { flex: 1, minWidth: 0 },
+  rowName: { fontSize: 14, fontWeight: "600" },
+  rowMeta: { fontSize: 12, marginTop: 2 },
+  statusPill: {
+    borderWidth: 1, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 3,
+  },
+  statusText: { fontSize: 11, fontWeight: "600" },
+  countBadge: {
+    backgroundColor: "rgba(201,168,76,0.18)",
+    borderRadius: 10, borderWidth: 1,
+    borderColor: "rgba(201,168,76,0.35)",
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  countText: { color: GOLD, fontSize: 12, fontWeight: "700" },
+  empty: { paddingVertical: 48 },
+  emptyText: { fontSize: 14 },
+  errorTitle: { fontSize: 17, fontWeight: "600", marginBottom: 6, textAlign: "center" },
+  errorMsg: { fontSize: 13, textAlign: "center", marginBottom: 20 },
+  retryBtn: {
+    backgroundColor: GOLD, paddingHorizontal: 20,
+    paddingVertical: 10, borderRadius: 10,
+  },
+  retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+});

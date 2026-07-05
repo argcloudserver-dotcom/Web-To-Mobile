@@ -1,30 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Dimensions, Alert,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
-import Animated, {
-  useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing,
-} from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { useColors } from "@/hooks/useColors";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { shadow } from "@/lib/shadow";
 import { customFetch } from "@workspace/api-client";
+import { AuthHero } from "@/components/AuthHero";
+import { LinearGradient } from "expo-linear-gradient";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const isSmallScreen = SCREEN_WIDTH < 375;
-const EASE = Easing.bezier(0.22, 1, 0.36, 1);
+const GOLD = "#c9a84c";
+const NAVY = "#0f1e35";
+const NAVY_MID = "#1e3560";
+const NAVY_LIGHT = "#243d70";
+const CREAM = "#faf9f6";
 
 export default function RegisterScreen() {
-  const theme = useColors();
-  const c = theme.colors;
-  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useLanguage();
@@ -36,31 +30,13 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  const cardOpacity = useSharedValue(0);
-  const cardY = useSharedValue(30);
-  const headingOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    const cfg = { duration: 500, easing: EASE };
-    headingOpacity.value = withTiming(1, { duration: 400, easing: EASE });
-    cardOpacity.value = withDelay(120, withTiming(1, cfg));
-    cardY.value = withDelay(120, withTiming(0, cfg));
-  }, []);
-
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity: cardOpacity.value,
-    transform: [{ translateY: cardY.value }],
-  }));
-  const headingStyle = useAnimatedStyle(() => ({ opacity: headingOpacity.value }));
+  const [focused, setFocused] = useState<string | null>(null);
 
   async function handleRegister() {
     setError("");
     if (!name.trim()) { setError(t("auth.full_name_required")); return; }
     if (!email.trim()) { setError(t("auth.email_required")); return; }
     if (password.length < 8) { setError(t("auth.password_min_length")); return; }
-
     setIsLoading(true);
     try {
       await customFetch("/api/auth/register", {
@@ -77,146 +53,193 @@ export default function RegisterScreen() {
     }
   }
 
-  const s = makeStyles(isDark);
-
   return (
-    <View style={[s.container, { backgroundColor: c.background }]}>
-      <View style={[s.goldRule, { backgroundColor: c.accent }]} />
-      <KeyboardAwareScrollViewCompat style={s.container} contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+    <KeyboardAvoidingView
+      style={s.root}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        <AuthHero
+          icon="user-plus"
+          title={t("register.create_your_account")}
+          subtitle="TIL Real Estate CRM"
+        />
 
-        <Animated.View style={[s.header, headingStyle]}>
-          <View style={s.logoOuter}>
-            <View style={[s.logoInner, { backgroundColor: c.accent }]}>
-              <Feather name="user-plus" size={isSmallScreen ? 22 : 26} color={c.accentForeground} />
-            </View>
-          </View>
-          <Text style={[s.brand, { color: c.accent }]}>PropOS</Text>
-          <View style={s.brandRule} />
-          <Text style={[s.subtitle, { color: c.mutedForeground }]}>{t("register.create_your_account")}</Text>
-        </Animated.View>
+        {/* Form panel */}
+        <View style={s.panel}>
+          <View style={s.pill} />
 
-        <Animated.View style={[s.formCard, { backgroundColor: c.card }, cardStyle]}>
-          <Text style={[s.welcome, { color: c.foreground }]}>{t("register.join_heading")}</Text>
-          <Text style={[s.welcomeSub, { color: c.mutedForeground }]}>{t("register.fill_details")}</Text>
-
-          <Text style={[s.label, { color: focusedField === "name" ? c.accent : c.mutedForeground }]}>{t("register.full_name_label")}</Text>
-          <View style={[s.inputBox, { backgroundColor: c.muted, borderColor: focusedField === "name" ? c.accent : c.border }]}>
-            <Feather name="user" size={16} color={focusedField === "name" ? c.accent : c.mutedForeground} style={s.inputIcon} />
-            <TextInput
-              style={[s.input, { color: c.foreground }]}
-              placeholder="Ahmed Mohamed"
-              placeholderTextColor={c.mutedForeground}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              onFocus={() => setFocusedField("name")}
-              onBlur={() => setFocusedField(null)}
-            />
-          </View>
-
-          <Text style={[s.label, { color: focusedField === "email" ? c.accent : c.mutedForeground, marginTop: 14 }]}>{t("register.email_label")}</Text>
-          <View style={[s.inputBox, { backgroundColor: c.muted, borderColor: focusedField === "email" ? c.accent : c.border }]}>
-            <Feather name="mail" size={16} color={focusedField === "email" ? c.accent : c.mutedForeground} style={s.inputIcon} />
-            <TextInput
-              style={[s.input, { color: c.foreground }]}
-              placeholder="ahmed@company.com"
-              placeholderTextColor={c.mutedForeground}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              onFocus={() => setFocusedField("email")}
-              onBlur={() => setFocusedField(null)}
-            />
-          </View>
-
-          <Text style={[s.label, { color: focusedField === "phone" ? c.accent : c.mutedForeground, marginTop: 14 }]}>{t("register.phone_label")}</Text>
-          <View style={[s.inputBox, { backgroundColor: c.muted, borderColor: focusedField === "phone" ? c.accent : c.border }]}>
-            <Feather name="phone" size={16} color={focusedField === "phone" ? c.accent : c.mutedForeground} style={s.inputIcon} />
-            <TextInput
-              style={[s.input, { color: c.foreground }]}
-              placeholder="+20 1XX XXX XXXX"
-              placeholderTextColor={c.mutedForeground}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              onFocus={() => setFocusedField("phone")}
-              onBlur={() => setFocusedField(null)}
-            />
-          </View>
-
-          <Text style={[s.label, { color: focusedField === "password" ? c.accent : c.mutedForeground, marginTop: 14 }]}>{t("register.password_label")}</Text>
-          <View style={[s.inputBox, { backgroundColor: c.muted, borderColor: focusedField === "password" ? c.accent : c.border }]}>
-            <Feather name="lock" size={16} color={focusedField === "password" ? c.accent : c.mutedForeground} style={s.inputIcon} />
-            <TextInput
-              style={[s.input, { color: c.foreground }]}
-              placeholder={t("register.min_chars_placeholder")}
-              placeholderTextColor={c.mutedForeground}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              onFocus={() => setFocusedField("password")}
-              onBlur={() => setFocusedField(null)}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={s.eyeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name={showPassword ? "eye-off" : "eye"} size={16} color={c.mutedForeground} />
-            </TouchableOpacity>
-          </View>
+          <Text style={s.heading}>{t("register.join_heading")}</Text>
+          <Text style={s.subheading}>{t("register.fill_details")}</Text>
 
           {!!error && (
-            <View style={[s.errorBox, { backgroundColor: c.dangerMuted, borderColor: c.danger }]}>
-              <Feather name="alert-circle" size={14} color={c.danger} />
-              <Text style={[s.errorText, { color: c.danger }]}>{error}</Text>
+            <View style={s.errorBox}>
+              <Feather name="alert-circle" size={14} color="#dc2626" />
+              <Text style={s.errorText}>{error}</Text>
             </View>
           )}
 
-          <View style={s.btnWrap}>
-            <TouchableOpacity style={[s.registerBtn, { backgroundColor: c.accent, ...shadow({ color: c.accent, opacity: 0.4, radius: 12, elevation: 7 }) }, isLoading && s.btnDisabled]} onPress={handleRegister} disabled={isLoading} activeOpacity={0.85}>
-              {isLoading ? <ActivityIndicator color={c.accentForeground} /> : <Text style={[s.registerBtnText, { color: c.accentForeground }]}>{t("register.create_account_btn")}</Text>}
+          <UnderlineField
+            label={t("register.full_name_label")}
+            placeholder="Ahmed Mohamed"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            focused={focused === "name"}
+            onFocus={() => setFocused("name")}
+            onBlur={() => setFocused(null)}
+            icon="user"
+          />
+          <UnderlineField
+            label={t("register.email_label")}
+            placeholder="ahmed@company.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            focused={focused === "email"}
+            onFocus={() => setFocused("email")}
+            onBlur={() => setFocused(null)}
+            icon="mail"
+          />
+          <UnderlineField
+            label={t("register.phone_label")}
+            placeholder="+20 1XX XXX XXXX"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            focused={focused === "phone"}
+            onFocus={() => setFocused("phone")}
+            onBlur={() => setFocused(null)}
+            icon="phone"
+          />
+          <UnderlineField
+            label={t("register.password_label")}
+            placeholder={t("register.min_chars_placeholder")}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            focused={focused === "password"}
+            onFocus={() => setFocused("password")}
+            onBlur={() => setFocused(null)}
+            icon="lock"
+            rightElement={
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name={showPassword ? "eye-off" : "eye"} size={16} color="#9a9490" />
+              </TouchableOpacity>
+            }
+          />
+
+          <TouchableOpacity
+            onPress={handleRegister}
+            disabled={isLoading}
+            activeOpacity={0.85}
+            style={[s.ctaWrap, isLoading && { opacity: 0.65 }]}
+          >
+            <LinearGradient
+              colors={[NAVY, NAVY_MID, NAVY_LIGHT]}
+              locations={[0, 0.5, 1]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={s.ctaGradient}
+            >
+              {isLoading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={s.ctaText}>{t("register.create_account_btn")}</Text>
+              }
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <View style={s.footerRow}>
+            <Text style={s.footerText}>{t("register.already_have_account")}</Text>
+            <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
+              <Text style={s.footerLink}> {t("register.sign_in_link")}</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
 
-        <View style={s.footerLinks}>
-          <Text style={[s.footerText, { color: c.mutedForeground }]}>{t("register.already_have_account")}</Text>
-          <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
-            <Text style={[s.link, { color: c.accent }]}> {t("register.sign_in_link")}</Text>
-          </TouchableOpacity>
+          <View style={{ height: insets.bottom + 24 }} />
         </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
 
-      </KeyboardAwareScrollViewCompat>
+function UnderlineField({
+  label, placeholder, value, onChangeText, keyboardType, autoCapitalize,
+  secureTextEntry, focused, onFocus, onBlur, icon, rightElement,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  keyboardType?: any;
+  autoCapitalize?: any;
+  secureTextEntry?: boolean;
+  focused: boolean;
+  onFocus: () => void;
+  onBlur: () => void;
+  icon?: React.ComponentProps<typeof Feather>["name"];
+  rightElement?: React.ReactNode;
+}) {
+  return (
+    <View style={uf.group}>
+      <Text style={uf.label}>{label}</Text>
+      <View style={[uf.row, focused && uf.rowFocused]}>
+        {icon && <Feather name={icon} size={15} color={focused ? GOLD : "#9a9490"} style={uf.icon} />}
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#c0bcb6"
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          secureTextEntry={secureTextEntry}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          style={uf.input}
+        />
+        {rightElement}
+      </View>
     </View>
   );
 }
 
-function makeStyles(isDark: boolean) {
-  return StyleSheet.create({
-    container: { flex: 1 },
-    scroll: { flexGrow: 1, justifyContent: "center", paddingHorizontal: isSmallScreen ? 16 : 24 },
-    goldRule: { position: "absolute", top: 0, left: 0, right: 0, height: 2, opacity: 0.7 },
-    header: { alignItems: "center", marginBottom: 28 },
-    logoOuter: { width: isSmallScreen ? 64 : 72, height: isSmallScreen ? 64 : 72, borderRadius: 20, backgroundColor: "rgba(201,168,76,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 14, borderWidth: 1, borderColor: "rgba(200,168,75,0.3)" },
-    logoInner: { width: isSmallScreen ? 50 : 56, height: isSmallScreen ? 50 : 56, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-    brand: { fontSize: isSmallScreen ? 22 : 24, fontWeight: "700" },
-    brandRule: { width: 32, height: 1, backgroundColor: "rgba(200,168,75,0.4)", marginVertical: 8 },
-    subtitle: { fontSize: isSmallScreen ? 12 : 13 },
-    formCard: { borderRadius: 16, padding: isSmallScreen ? 20 : 24, ...shadow({ opacity: 0.25, radius: 24, elevation: 10 }), borderWidth: 1, borderColor: "rgba(200,168,75,0.12)" },
-    welcome: { fontSize: isSmallScreen ? 19 : 21, fontWeight: "700", marginBottom: 4 },
-    welcomeSub: { fontSize: 13, marginBottom: 22 },
-    label: { fontSize: 11, fontWeight: "600", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.6 },
-    inputBox: { flexDirection: "row", alignItems: "center", borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 14, height: 48 },
-    inputIcon: { marginRight: 10 },
-    input: { flex: 1, fontSize: 15 },
-    eyeBtn: { padding: 4 },
-    errorBox: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, padding: 12, marginTop: 12, borderWidth: 1 },
-    errorText: { fontSize: 13, flex: 1 },
-    btnWrap: { marginTop: 22 },
-    registerBtn: { borderRadius: 12, height: 50, alignItems: "center", justifyContent: "center" },
-    btnDisabled: { opacity: 0.65 },
-    registerBtnText: { fontSize: 15, fontWeight: "700", letterSpacing: 0.3 },
-    footerLinks: { flexDirection: "row", justifyContent: "center", marginTop: 24 },
-    footerText: { fontSize: 13 },
-    link: { fontSize: 13, fontWeight: "600" },
-  });
-}
+const uf = StyleSheet.create({
+  group: { marginBottom: 20 },
+  label: { color: "#7a7672", fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 8, textTransform: "uppercase" },
+  row: { flexDirection: "row", alignItems: "center", borderBottomWidth: 2, borderBottomColor: "#d8d4cd", paddingBottom: 10 },
+  rowFocused: { borderBottomColor: GOLD },
+  icon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 15, color: "#2a2520", height: 28, paddingVertical: 0 },
+});
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#0a1520" },
+  panel: {
+    backgroundColor: CREAM,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -24,
+    paddingHorizontal: 28,
+    paddingTop: 18,
+    flex: 1,
+  },
+  pill: { width: 38, height: 4, borderRadius: 2, backgroundColor: "#ccc9c3", alignSelf: "center", marginBottom: 22 },
+  heading: { color: NAVY, fontSize: 22, fontWeight: "800", letterSpacing: -0.4, marginBottom: 4 },
+  subheading: { color: "#9e9a94", fontSize: 13, marginBottom: 24 },
+  errorBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(220,38,38,0.08)", borderRadius: 8, borderWidth: 1, borderColor: "rgba(220,38,38,0.2)", padding: 12, marginBottom: 16 },
+  errorText: { color: "#dc2626", fontSize: 13, flex: 1 },
+  ctaWrap: { borderRadius: 14, overflow: "hidden", marginTop: 8, marginBottom: 20, shadowColor: NAVY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.38, shadowRadius: 16, elevation: 8 },
+  ctaGradient: { paddingVertical: 16, alignItems: "center", justifyContent: "center", borderRadius: 14 },
+  ctaText: { color: "#fff", fontWeight: "700", fontSize: 15.5, letterSpacing: 0.3 },
+  footerRow: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
+  footerText: { color: "#9e9a94", fontSize: 13 },
+  footerLink: { color: GOLD, fontSize: 13, fontWeight: "700" },
+});

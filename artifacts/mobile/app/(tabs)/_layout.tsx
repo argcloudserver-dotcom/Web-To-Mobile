@@ -47,9 +47,9 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
-  const TAB_BG = c.tabBarBg;
-  const ACTIVE = c.tabBarActive;
-  const INACTIVE = c.tabBarInactive;
+  const TAB_BG = isDark ? "#0a1520" : "#fff";
+  const ACTIVE = "#c9a84c";
+  const INACTIVE = isDark ? "rgba(255,255,255,0.35)" : "rgba(15,30,53,0.35)";
 
   return (
     <Tabs

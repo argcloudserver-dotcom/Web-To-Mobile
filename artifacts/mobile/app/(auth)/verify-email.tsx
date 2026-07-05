@@ -1,53 +1,39 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Dimensions,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
-import Animated, {
-  useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing,
-} from "react-native-reanimated";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { useColors } from "@/hooks/useColors";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useAppTheme } from "@/contexts/ThemeContext";
 import { customFetch } from "@workspace/api-client";
-import { shadow } from "@/lib/shadow";
+import { AuthHero } from "@/components/AuthHero";
+import { LinearGradient } from "expo-linear-gradient";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const isSmallScreen = SCREEN_WIDTH < 375;
-const EASE = Easing.bezier(0.22, 1, 0.36, 1);
+const GOLD = "#c9a84c";
+const NAVY = "#0f1e35";
+const NAVY_MID = "#1e3560";
+const NAVY_LIGHT = "#243d70";
+const CREAM = "#faf9f6";
 const RESEND_COOLDOWN = 60;
 
 function useCountdown() {
   const [seconds, setSeconds] = useState(RESEND_COOLDOWN);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const start = useCallback(() => {
     setSeconds(RESEND_COOLDOWN);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setSeconds(s => {
-        if (s <= 1) { clearInterval(timerRef.current!); return 0; }
-        return s - 1;
-      });
+      setSeconds(s => { if (s <= 1) { clearInterval(timerRef.current!); return 0; } return s - 1; });
     }, 1000);
   }, []);
-
-  useEffect(() => {
-    start();
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [start]);
-
+  useEffect(() => { start(); return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, [start]);
   return { seconds, start, canResend: seconds === 0 };
 }
 
 export default function VerifyEmailScreen() {
-  const theme = useColors();
-  const c = theme.colors;
-  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { email = "" } = useLocalSearchParams<{ email: string }>();
@@ -59,22 +45,6 @@ export default function VerifyEmailScreen() {
   const [error, setError] = useState("");
   const [focused, setFocused] = useState(false);
   const { seconds, start: startCountdown, canResend } = useCountdown();
-
-  const cardOpacity = useSharedValue(0);
-  const cardY = useSharedValue(30);
-  const headingOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    headingOpacity.value = withTiming(1, { duration: 400, easing: EASE });
-    cardOpacity.value = withDelay(120, withTiming(1, { duration: 500, easing: EASE }));
-    cardY.value = withDelay(120, withTiming(0, { duration: 500, easing: EASE }));
-  }, []);
-
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity: cardOpacity.value,
-    transform: [{ translateY: cardY.value }],
-  }));
-  const headingStyle = useAnimatedStyle(() => ({ opacity: headingOpacity.value }));
 
   async function handleVerify() {
     setError("");
@@ -112,122 +82,128 @@ export default function VerifyEmailScreen() {
     }
   }
 
-  const s = makeStyles(isDark);
-
   return (
-    <View style={[s.container, { backgroundColor: c.background }]}>
-      <View style={[s.goldRule, { backgroundColor: c.accent }]} />
-      <View style={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+    <KeyboardAvoidingView
+      style={s.root}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        <AuthHero
+          icon="shield"
+          title={t("verify_email_screen.email_verification")}
+          subtitle={t("auth.verify_email")}
+        />
 
-        <Animated.View style={[s.header, headingStyle]}>
-          <View style={s.logoOuter}>
-            <View style={[s.logoInner, { backgroundColor: c.accent }]}>
-              <Feather name="shield" size={isSmallScreen ? 22 : 26} color={c.accentForeground} />
-            </View>
-          </View>
-          <Text style={[s.brand, { color: c.accent }]}>PropOS</Text>
-          <View style={s.brandRule} />
-          <Text style={[s.subtitle, { color: c.mutedForeground }]}>{t("verify_email_screen.email_verification")}</Text>
-        </Animated.View>
+        <View style={s.panel}>
+          <View style={s.pill} />
 
-        <Animated.View style={[s.formCard, { backgroundColor: c.card }, cardStyle]}>
-          <Text style={[s.welcome, { color: c.foreground }]}>{t("auth.verify_email")}</Text>
-          <Text style={[s.welcomeSub, { color: c.mutedForeground }]}>
-            {t("auth.verify_code")}
-          </Text>
+          <Text style={s.heading}>{t("auth.verify_email")}</Text>
+          <Text style={s.subheading}>{t("auth.verify_code")}</Text>
           {!!email && (
-            <Text style={[s.emailText, { color: c.accent }]}>{email}</Text>
+            <Text style={s.emailHighlight}>{email}</Text>
           )}
-
-          <Text style={[s.label, { color: focused ? c.accent : c.mutedForeground, marginTop: 20 }]}>{t("verify_email_screen.verification_code_label")}</Text>
-          <View style={[s.codeBox, { backgroundColor: c.muted, borderColor: focused ? c.accent : c.border }]}>
-            <TextInput
-              style={[s.codeInput, { color: c.foreground }]}
-              placeholder="0 0 0 0 0 0"
-              placeholderTextColor={c.mutedForeground}
-              value={code}
-              onChangeText={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
-              keyboardType="number-pad"
-              maxLength={6}
-              autoFocus
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-            />
-          </View>
 
           {!!error && (
-            <View style={[s.errorBox, { backgroundColor: c.dangerMuted, borderColor: c.danger }]}>
-              <Feather name="alert-circle" size={14} color={c.danger} />
-              <Text style={[s.errorText, { color: c.danger }]}>{error}</Text>
+            <View style={s.errorBox}>
+              <Feather name="alert-circle" size={14} color="#dc2626" />
+              <Text style={s.errorText}>{error}</Text>
             </View>
           )}
 
-          <View style={s.btnWrap}>
-            <TouchableOpacity
-              style={[s.verifyBtn, { borderColor: code.length === 6 ? c.accent : c.border }, (isLoading || code.length !== 6) && s.btnDisabled]}
-              onPress={handleVerify}
-              disabled={isLoading || code.length !== 6}
-              activeOpacity={0.85}
+          {/* OTP code box */}
+          <View style={s.fieldGroup}>
+            <Text style={s.label}>{t("verify_email_screen.verification_code_label")}</Text>
+            <View style={[s.codeWrap, focused && s.codeWrapFocused]}>
+              <TextInput
+                value={code}
+                onChangeText={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
+                placeholder="0  0  0  0  0  0"
+                placeholderTextColor="#c0bcb6"
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                style={s.codeInput}
+              />
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleVerify}
+            disabled={isLoading || code.length !== 6}
+            activeOpacity={0.85}
+            style={[s.ctaWrap, (isLoading || code.length !== 6) && { opacity: 0.5 }]}
+          >
+            <LinearGradient
+              colors={[NAVY, NAVY_MID, NAVY_LIGHT]}
+              locations={[0, 0.5, 1]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={s.ctaGradient}
             >
               {isLoading
-                ? <ActivityIndicator color={c.accent} />
-                : <Text style={[s.verifyBtnText, { color: code.length === 6 ? c.accent : c.mutedForeground }]}>{t("verify_email_screen.verify_button")}</Text>
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={s.ctaText}>{t("verify_email_screen.verify_button")}</Text>
               }
-            </TouchableOpacity>
-          </View>
+            </LinearGradient>
+          </TouchableOpacity>
 
           <View style={s.resendRow}>
             <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
-              <Text style={[s.backText, { color: c.mutedForeground }]}>{t("verify_email_screen.back_to_sign_in")}</Text>
+              <Text style={s.backText}>{t("verify_email_screen.back_to_sign_in")}</Text>
             </TouchableOpacity>
-
             {canResend ? (
               <TouchableOpacity onPress={handleResend} disabled={isResending}>
                 {isResending
-                  ? <ActivityIndicator size="small" color={c.accent} />
-                  : <Text style={[s.resendText, { color: c.accent }]}>{t("auth.resend_code")}</Text>
+                  ? <ActivityIndicator size="small" color={GOLD} />
+                  : <Text style={s.resendText}>{t("auth.resend_code")}</Text>
                 }
               </TouchableOpacity>
             ) : (
-              <Text style={[s.countdownText, { color: c.mutedForeground }]}>
-                {t("auth.resend_in")} <Text style={{ color: c.accent }}>{seconds}s</Text>
+              <Text style={s.countdownText}>
+                {t("auth.resend_in")} <Text style={{ color: GOLD }}>{seconds}s</Text>
               </Text>
             )}
           </View>
-        </Animated.View>
 
-      </View>
-    </View>
+          <View style={{ height: insets.bottom + 24 }} />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-function makeStyles(isDark: boolean) {
-  return StyleSheet.create({
-    container: { flex: 1 },
-    scroll: { flex: 1, justifyContent: "center", paddingHorizontal: isSmallScreen ? 16 : 24 },
-    goldRule: { position: "absolute", top: 0, left: 0, right: 0, height: 2, opacity: 0.7 },
-    header: { alignItems: "center", marginBottom: 28 },
-    logoOuter: { width: isSmallScreen ? 64 : 72, height: isSmallScreen ? 64 : 72, borderRadius: 20, backgroundColor: "rgba(201,168,76,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 14, borderWidth: 1, borderColor: "rgba(200,168,75,0.3)" },
-    logoInner: { width: isSmallScreen ? 50 : 56, height: isSmallScreen ? 50 : 56, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-    brand: { fontSize: isSmallScreen ? 22 : 24, fontWeight: "700" },
-    brandRule: { width: 32, height: 1, backgroundColor: "rgba(200,168,75,0.4)", marginVertical: 8 },
-    subtitle: { fontSize: isSmallScreen ? 12 : 13 },
-    formCard: { borderRadius: 16, padding: isSmallScreen ? 20 : 24, ...shadow({ opacity: 0.25, radius: 24, elevation: 10 }), borderWidth: 1, borderColor: "rgba(200,168,75,0.12)" },
-    welcome: { fontSize: isSmallScreen ? 19 : 21, fontWeight: "700", marginBottom: 4 },
-    welcomeSub: { fontSize: 13, lineHeight: 20 },
-    emailText: { fontSize: 14, fontWeight: "600", marginBottom: 4, marginTop: 2 },
-    label: { fontSize: 11, fontWeight: "600", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.6 },
-    codeBox: { borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 16, height: 64, alignItems: "center", justifyContent: "center" },
-    codeInput: { fontSize: 32, fontWeight: "700", letterSpacing: 12, textAlign: "center", width: "100%" },
-    errorBox: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, padding: 12, marginTop: 12, borderWidth: 1 },
-    errorText: { fontSize: 13, flex: 1 },
-    btnWrap: { marginTop: 20 },
-    verifyBtn: { borderRadius: 12, height: 50, alignItems: "center", justifyContent: "center", borderWidth: 1, backgroundColor: "transparent" },
-    btnDisabled: { opacity: 0.5 },
-    verifyBtnText: { fontSize: 13, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
-    resendRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 18 },
-    backText: { fontSize: 13 },
-    resendText: { fontSize: 13, fontWeight: "600" },
-    countdownText: { fontSize: 12 },
-  });
-}
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#0a1520" },
+  panel: {
+    backgroundColor: CREAM,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -24,
+    paddingHorizontal: 28,
+    paddingTop: 18,
+    flex: 1,
+  },
+  pill: { width: 38, height: 4, borderRadius: 2, backgroundColor: "#ccc9c3", alignSelf: "center", marginBottom: 22 },
+  heading: { color: NAVY, fontSize: 22, fontWeight: "800", letterSpacing: -0.4, marginBottom: 4 },
+  subheading: { color: "#9e9a94", fontSize: 13, lineHeight: 20 },
+  emailHighlight: { color: GOLD, fontSize: 14, fontWeight: "600", marginTop: 4, marginBottom: 16 },
+  errorBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(220,38,38,0.08)", borderRadius: 8, borderWidth: 1, borderColor: "rgba(220,38,38,0.2)", padding: 12, marginBottom: 16 },
+  errorText: { color: "#dc2626", fontSize: 13, flex: 1 },
+  fieldGroup: { marginTop: 20, marginBottom: 28 },
+  label: { color: "#7a7672", fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 12, textTransform: "uppercase" },
+  codeWrap: { borderBottomWidth: 2, borderBottomColor: "#d8d4cd", paddingBottom: 10, alignItems: "center" },
+  codeWrapFocused: { borderBottomColor: GOLD },
+  codeInput: { fontSize: 32, fontWeight: "700", letterSpacing: 14, textAlign: "center", color: NAVY, height: 48 },
+  ctaWrap: { borderRadius: 14, overflow: "hidden", marginBottom: 20, shadowColor: NAVY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.38, shadowRadius: 16, elevation: 8 },
+  ctaGradient: { paddingVertical: 16, alignItems: "center", justifyContent: "center", borderRadius: 14 },
+  ctaText: { color: "#fff", fontWeight: "700", fontSize: 15.5, letterSpacing: 0.3 },
+  resendRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  backText: { color: "#9a9490", fontSize: 13 },
+  resendText: { color: GOLD, fontSize: 13, fontWeight: "600" },
+  countdownText: { color: "#9a9490", fontSize: 12 },
+});
